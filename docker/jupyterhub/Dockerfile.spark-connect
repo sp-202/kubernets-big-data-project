@@ -1,0 +1,33 @@
+# Spark Connect Thin Client Dockerfile for JupyterHub
+# This image acts as a lightweight client connecting to a remote Spark Connect Server
+# Base: JupyterHub 4.0.7 with PySpark, Scala, and SQL support
+
+FROM subhodeep2022/spark-bigdata:jupyterhub-4.0.7-pyspark-scala-sql-v2
+
+USER root
+
+# Install system dependencies if needed
+RUN apt-get update && apt-get install -y \
+    curl \
+    && rm -rf /var/lib/apt/lists/*
+
+USER ${NB_UID}
+
+# Install Spark Connect client libraries
+# pyspark==4.0.1: Matches the Spark Connect Server version
+# grpcio-status: Required for gRPC communication with Spark Connect Server
+RUN pip install --no-cache-dir \
+    pyspark==4.0.1 \
+    grpcio-status
+
+# Note: We do NOT install sparkmagic or toree since we're using pure Spark Connect
+# The existing s3contents and s3fs from the base image are retained for S3 persistence
+
+# Verify installation
+RUN python -c "import pyspark; print(f'PySpark {pyspark.__version__} installed')" && \
+    python -c "import grpc_status; print('grpcio-status installed')"
+
+WORKDIR /home/jovyan/work
+
+# The Spark Connect server address will be provided via SPARK_REMOTE environment variable
+# e.g., SPARK_REMOTE=sc://spark-connect-server-driver-svc:15002
