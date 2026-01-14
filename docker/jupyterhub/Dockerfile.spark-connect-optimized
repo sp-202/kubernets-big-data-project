@@ -21,6 +21,12 @@ RUN pip install --no-cache-dir \
     jupyter-server \
     ipykernel
 
+# Install Spark dependencies FIRST (required for Spark Connect)
+RUN pip install --no-cache-dir \
+    pyarrow>=11.0.0 \
+    numpy \
+    pandas
+
 # Install Spark Connect client libraries (NO full Spark installation)
 RUN pip install --no-cache-dir \
     pyspark==4.0.1 \
@@ -33,7 +39,6 @@ RUN pip install --no-cache-dir \
 
 # Install optional but useful packages
 RUN pip install --no-cache-dir \
-    pandas \
     matplotlib \
     seaborn \
     plotly
