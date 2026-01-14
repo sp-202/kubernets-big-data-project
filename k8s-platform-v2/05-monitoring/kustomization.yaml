@@ -2,8 +2,7 @@ apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 
 resources:
-  - dashboard-ingress.yaml
-  - grafana-ingress.yaml
+
   - admin-user.yaml
   - kong-manual-config.yaml
   - dashboard-transport.yaml

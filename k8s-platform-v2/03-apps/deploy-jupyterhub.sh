@@ -38,11 +38,9 @@ if [ -f "$SCRIPT_DIR/configs/spark-defaults.conf" ]; then
         -n default --dry-run=client -o yaml | kubectl apply -f -
 fi
 
-# Apply the deployment with variable substitution
-echo "📦 Applying JupyterHub deployment..."
-sed -e "s|\${SPARK_IMAGE}|$SPARK_IMAGE|g" \
-    -e "s|\${SPARK_DRIVER_HOST}|\$(hostname -i)|g" \
-    "$SCRIPT_DIR/jupyterhub.yaml" | kubectl apply -f -
+# Apply the deployment using Kustomize (handles variable substitution correctly)
+echo "📦 Applying configuration using Kustomize..."
+kubectl apply -k "$PROJECT_ROOT/k8s-platform-v2"
 
 # Restart to pick up changes
 echo "🔄 Restarting JupyterHub deployment..."

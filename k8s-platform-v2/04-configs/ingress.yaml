@@ -3,10 +3,24 @@ kind: Ingress
 metadata:
   name: centralized-ingress
   namespace: default
-  annotations:
-    traefik.ingress.kubernetes.io/router.entrypoints: web
+  # Removed restrictive entrypoints annotation to allow both web (HTTP) and websecure (HTTPS)
+  # annotations:
+  #   traefik.ingress.kubernetes.io/router.entrypoints: web
 spec:
   ingressClassName: traefik
+  tls:
+    - hosts:
+      - airflow.$(INGRESS_DOMAIN)
+      - minio.$(INGRESS_DOMAIN)
+      - s3.$(INGRESS_DOMAIN)
+      - superset.$(INGRESS_DOMAIN)
+      - jupyterhub.$(INGRESS_DOMAIN)
+      - spark.$(INGRESS_DOMAIN)
+      - marimo.$(INGRESS_DOMAIN)
+
+      - starrocks.$(INGRESS_DOMAIN)
+      - grafana.$(INGRESS_DOMAIN)
+      - dashboard.$(INGRESS_DOMAIN)
   rules:
   # Airflow
   - host: airflow.$(INGRESS_DOMAIN)
@@ -85,14 +99,37 @@ spec:
             name: marimo
             port:
               name: web
-  # Polynote
-  - host: polynote.$(INGRESS_DOMAIN)
+
+  # StarRocks FE
+  - host: starrocks.$(INGRESS_DOMAIN)
     http:
       paths:
       - path: /
         pathType: Prefix
         backend:
           service:
-            name: polynote
+            name: starrocks-fe
             port:
-              name: web
+              number: 8030
+  # Grafana
+  - host: grafana.$(INGRESS_DOMAIN)
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: kube-prometheus-stack-grafana
+            port:
+              number: 80
+  # Kubernetes Dashboard
+  - host: dashboard.$(INGRESS_DOMAIN)
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: kubernetes-dashboard-kong-proxy
+            port:
+              number: 80

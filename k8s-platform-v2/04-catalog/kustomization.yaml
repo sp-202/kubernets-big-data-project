@@ -9,3 +9,6 @@ resources:
 
 generatorOptions:
   disableNameSuffixHash: true
+
+patchesStrategicMerge:
+  - ingress-patch.yaml

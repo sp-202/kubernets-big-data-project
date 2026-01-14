@@ -1,0 +1,196 @@
+        - -c
+        image: minio/mc
+        name: minio-sync
+        volumeMounts:
+        - mountPath: /opt/airflow/dags
+          name: dags
+      volumes:
+      - emptyDir: {}
+        name: dags
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: hive-metastore
+  namespace: default
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: hive-metastore
+  template:
+    metadata:
+      labels:
+        app: hive-metastore
+    spec:
+      containers:
+      - args:
+        - |
+          /opt/hive/bin/schematool -dbType postgres -validate || /opt/hive/bin/schematool -dbType postgres -initSchema
+          /opt/hive/bin/hive --service metastore
+        command:
+        - /bin/bash                  
+        - -c
+        env:
+        - name: HADOOP_OPTS
+          value: -Dhive.log.level=INFO
+        image: subhodeep2022/spark-bigdata:hive-3.1.3-custom
+        imagePullPolicy: Always
+        name: hive-metastore
+        ports:
+        - containerPort: 9083
+        volumeMounts:
+        - mountPath: /opt/hive/conf/hive-site.xml
+          name: hive-config
+          subPath: hive-site.xml
+        - mountPath: /tmp/hive
+          name: hive-scratch
+      - args:
+        - /opt/hive/bin/hive --service hiveserver2
+        command:
+        - /bin/bash
+        - -c
+        env:
+        - name: HADOOP_OPTS
+          value: -Dhive.log.level=INFO
+        - name: HADOOP_HEAPSIZE
+          value: "2048"
+        image: subhodeep2022/spark-bigdata:hive-3.1.3-custom
+        imagePullPolicy: Always
+        name: hive-server
+        ports:
+        - containerPort: 10000
+        resources:
+          limits:
+            cpu: 1000m
+            memory: 3Gi
+          requests:
+            cpu: 500m
+            memory: 2Gi
+        volumeMounts:
+        - mountPath: /opt/hive/conf/hive-site.xml
+          name: hive-config
+          subPath: hive-site.xml
+        - mountPath: /tmp/hive
+          name: hive-scratch
+      initContainers:
+      - args:
+        - mkdir -p /tmp/hive && chmod 777 /tmp/hive
+        command:
+        - /bin/bash
+        - -c
+        image: subhodeep2022/spark-bigdata:hive-3.1.3-custom
+        name: init-permissions
+        securityContext:
+          runAsUser: 0
+        volumeMounts:
+        - mountPath: /tmp/hive
+          name: hive-scratch
+      volumes:
+      - configMap:
+          name: hive-config
+        name: hive-config
+      - emptyDir: {}
+        name: hive-scratch
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: jupyterhub
+  name: jupyterhub
+  namespace: default
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: jupyterhub
+  template:
+    metadata:
+      labels:
+        app: jupyterhub
+        spark-role: driver
+    spec:
+      containers:
+      - env:
+        - name: SPARK_HOME
+          value: /opt/spark
+        - name: PYSPARK_PYTHON
+          value: python3
+        - name: PYSPARK_DRIVER_PYTHON
+          value: python3
+        - name: SPARK_IMAGE
+          value: subhodeep2022/spark-bigdata:spark-4.0.1-uc-0.3.1-fix-v4
+        - name: SPARK_DRIVER_HOST
+          valueFrom:
+            fieldRef:
+              fieldPath: status.podIP
+        - name: SPARK_LOCAL_IP
+          valueFrom:
+            fieldRef:
+              fieldPath: status.podIP
+        - name: SPARK_DRIVER_BIND_ADDRESS
+          value: 0.0.0.0
+        - name: AWS_ACCESS_KEY_ID
+          value: $(AWS_ACCESS_KEY_ID)
+        - name: AWS_SECRET_ACCESS_KEY
+          value: $(AWS_SECRET_ACCESS_KEY)
+        - name: JUPYTER_S3_ENDPOINT
+          value: $(MINIO_ENDPOINT)
+        - name: MINIO_ENDPOINT
+          value: $(MINIO_ENDPOINT)
+        - name: JUPYTER_ENABLE_LAB
+          value: "yes"
+        - name: JUPYTER_TOKEN
+          value: ""
+        - name: GRANT_SUDO
+          value: "yes"
+        image: subhodeep2022/spark-bigdata:jupyterhub-4.0.7-pyspark-scala-sql-v2
+        imagePullPolicy: Always
+        name: jupyterhub
+        ports:
+        - containerPort: 8888
+          name: web
+        - containerPort: 4040
+          name: spark-ui
+        resources:
+          limits:
+            cpu: 2000m
+            memory: 4Gi
+          requests:
+            cpu: 500m
+            memory: 2Gi
+        volumeMounts:
+        - mountPath: /opt/spark
+          name: spark-home
+        - mountPath: /tmp/spark-config-template/spark-defaults.conf
+          name: spark-config
+          subPath: spark-defaults.conf
+        - mountPath: /etc/jupyter/jupyter_notebook_config.py
+          name: jupyter-config
+          subPath: jupyter_notebook_config.py
+        - mountPath: /home/jovyan/work
+          name: notebooks
+        - mountPath: /usr/local/bin/before-notebook.d/setup-kernels.sh
+          name: startup-script
+          subPath: setup-kernels.sh
+      initContainers:
+      - command:
+        - sh
+        - -c
+        - cp -r /opt/spark/* /mnt/spark/ && chown -R 1000:100 /mnt/spark
+        image: subhodeep2022/spark-bigdata:spark-4.0.1-uc-0.3.1-fix-v4
+        imagePullPolicy: Always
+        name: spark-home-init
+        volumeMounts:
+        - mountPath: /mnt/spark
+          name: spark-home
+      serviceAccountName: jupyterhub
+      volumes:
+      - emptyDir: {}
+        name: spark-home
+      - configMap:
+          name: spark-config
+        name: spark-config
+      - configMap:
+          name: jupyterhub-config

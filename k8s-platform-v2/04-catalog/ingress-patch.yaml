@@ -1,0 +1,23 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: unity-catalog-unitycatalog
+spec:
+  rules:
+    - host: unity.$(INGRESS_DOMAIN)
+      http:
+        paths:
+          - path: "/api"
+            pathType: "Prefix"
+            backend:
+              service:
+                name: "unity-catalog-unitycatalog-server"
+                port:
+                  name: api
+          - path: "/"
+            pathType: "Prefix"
+            backend:
+              service:
+                name: "unity-catalog-unitycatalog-ui"
+                port:
+                  name: ui

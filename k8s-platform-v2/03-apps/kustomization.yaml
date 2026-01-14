@@ -6,8 +6,8 @@ resources:
   - hive.yaml
   - jupyterhub.yaml
   - marimo.yaml
-  - polynote.yaml
   - spark-ui-service.yaml
+  - spark-connect-server.yaml
   - starrocks.yaml
   # Generated Helm Charts
   - charts/gen/spark-operator.yaml
@@ -23,4 +23,3 @@ configMapGenerator:
 
 generatorOptions:
   disableNameSuffixHash: true
-

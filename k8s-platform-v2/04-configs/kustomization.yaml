@@ -11,3 +11,6 @@ configMapGenerator:
   - name: spark-log4j
     files:
       - log4j.properties
+
+generatorOptions:
+  disableNameSuffixHash: true
